@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cotización de Alojamiento - Estefany Travel & Tours</title>
+<title>Estefany Travel & Tours - Cotizador / Voucher</title>
 
 <!-- Fuentes de Google: Inter y Roboto -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +32,39 @@
         margin: 0 auto 10px auto;
         display: flex;
         gap: 10px;
-        justify-content: flex-end;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .mode-selector {
+        display: flex;
+        gap: 5px;
+        background: #E2E8F0;
+        padding: 4px;
+        border-radius: 8px;
+    }
+    .btn-mode {
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        background: transparent;
+        color: #475569;
+        transition: background 0.2s, color 0.2s;
+    }
+    .btn-mode.active {
+        background: #0077B6;
+        color: #FFFFFF;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    .btn-mode.active.voucher-mode {
+        background: #059669;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 8px;
     }
     .btn {
         padding: 8px 16px;
@@ -109,7 +141,7 @@
 
     /* Encabezados de Sección */
     .section-title {
-        background: linear-gradient(90deg, #0077B6 0%, #00B4D8 100%);
+        background: #0077B6;
         color: #FFFFFF;
         padding: 4px 10px;
         font-size: 11px;
@@ -145,7 +177,7 @@
     }
 
     /* Inputs */
-    input[type="text"], input[type="date"], input[type="number"], textarea {
+    input[type="text"], input[type="date"], input[type="number"], select, textarea {
         width: 100%;
         border: none;
         outline: none;
@@ -154,7 +186,7 @@
         font-size: 10.5px;
         color: #0F172A;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
         background-color: #F1F5F9;
     }
 
@@ -183,6 +215,16 @@
     }
     .total-row input {
         color: #BE123C;
+        font-weight: bold;
+        text-align: center;
+    }
+    .abono-row {
+        background-color: #F0FDF4;
+        font-weight: bold;
+        color: #166534;
+    }
+    .abono-row input {
+        color: #166534;
         font-weight: bold;
         text-align: center;
     }
@@ -327,17 +369,23 @@
         body { background-color: #FFFFFF; padding: 0; }
         .action-bar { display: none; }
         .container { box-shadow: none; border: none; padding: 0; }
-        input, textarea { border: none !important; background: transparent !important; }
+        input, textarea, select { border: none !important; background: transparent !important; appearance: none; }
         .iva-checkbox { display: none; }
     }
 </style>
 </head>
 <body>
 
-<!-- BOTONES DE ACCIÓN -->
+<!-- PANEL DE CONTROL FLOTANTE -->
 <div class="action-bar">
-    <button class="btn btn-pdf" onclick="descargarPDF()">📄 Descargar PDF</button>
-    <button class="btn btn-print" onclick="window.print()">🖨 Imprimir</button>
+    <div class="mode-selector">
+        <button id="btnCotizacion" class="btn-mode active" onclick="cambiarModo('cotizacion')">📌 Cotización</button>
+        <button id="btnVoucher" class="btn-mode" onclick="cambiarModo('voucher')">🎟️ Confirmación / Voucher</button>
+    </div>
+    <div class="btn-group">
+        <button class="btn btn-pdf" onclick="descargarPDF()">📄 Descargar PDF</button>
+        <button class="btn btn-print" onclick="window.print()">🖨 Imprimir</button>
+    </div>
 </div>
 
 <!-- CONTENEDOR DOCUMENTO -->
@@ -351,7 +399,7 @@
             </td>
             <td class="header-info">
                 <div class="brand-title">Estefany Travel & Tours</div>
-                <div class="brand-subtitle">COTIZACIÓN DE ALOJAMIENTO</div>
+                <div class="brand-subtitle" id="docSubTitle">COTIZACIÓN DE ALOJAMIENTO</div>
                 <div class="legal-badge">
                     NIT: 1002095958-6 | RNT: 301647 | WhatsApp: 321 506 2703
                 </div>
@@ -375,10 +423,10 @@
             <td><input type="text" placeholder="cliente@email.com"></td>
         </tr>
         <tr>
-            <th>Fecha cotización</th>
-            <td><input type="date"></td>
-            <th>Número cotización</th>
-            <td><input type="text" placeholder="COT-001"></td>
+            <th id="lblFechaDoc">Fecha cotización</th>
+            <td><input type="date" id="fechaDoc"></td>
+            <th id="lblNumDoc">Número cotización</th>
+            <td><input type="text" id="numDoc" placeholder="COT-001"></td>
         </tr>
         <tr>
             <th>Asesor</th>
@@ -413,6 +461,10 @@
             <th>Número noches</th>
             <td><input type="number" id="numNoches" placeholder="Ej: 3" oninput="calcularTotal()"></td>
         </tr>
+        <tr id="rowCodigoReserva" style="display: none;">
+            <th>Código Reserva / Confirmación</th>
+            <td colspan="3"><input type="text" placeholder="Ej: H-8954231 (Proporcionado por el hotel)"></td>
+        </tr>
         <tr>
             <th>Observaciones</th>
             <td colspan="3"><textarea rows="1" placeholder="Detalles o solicitudes adicionales..."></textarea></td>
@@ -421,7 +473,9 @@
 
     <!-- RESUMEN ECONÓMICO -->
     <div class="section-title">Resumen Económico (Valores en COP)</div>
-    <table class="economic-table">
+    
+    <!-- Tabla Modo Cotización -->
+    <table class="economic-table" id="tablaCotizacion">
         <thead>
             <tr>
                 <th>Valor por noche (COP)</th>
@@ -447,11 +501,37 @@
         </tbody>
     </table>
 
+    <!-- Tabla Modo Voucher / Confirmación -->
+    <table class="economic-table" id="tablaVoucher" style="display: none;">
+        <thead>
+            <tr>
+                <th style="background-color: #059669;">VALOR TOTAL PAQUETE</th>
+                <th style="background-color: #059669;">ESTADO DE RESERVA</th>
+                <th style="background-color: #059669;">ABONO REALIZADO</th>
+                <th style="background-color: #059669;">SALDO PENDIENTE</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="total-row"><input type="number" id="v_total" placeholder="$0 COP" oninput="calcularVoucherManual()"></td>
+                <td>
+                    <select id="v_estado" style="font-weight: bold; text-align-last: center; color: #059669;" onchange="actualizarPorEstado()">
+                        <option value="50">✅ CONFIRMADA (50% Abono)</option>
+                        <option value="100">🎉 PAGADO TOTAL (100%)</option>
+                        <option value="0">⏳ PENDIENTE DE PAGO</option>
+                    </select>
+                </td>
+                <td class="abono-row"><input type="number" id="v_abono" placeholder="$0 COP" oninput="calcularVoucherManual()"></td>
+                <td><input type="number" id="v_saldo" placeholder="$0 COP" readonly></td>
+            </tr>
+        </tbody>
+    </table>
+
     <!-- SECCIÓN CON FUENTE 'ROBOTO' -->
     <div class="custom-font-section">
         
         <!-- CONDICIONES DE RESERVA Y PAGO -->
-        <div class="box-info">
+        <div class="box-info" id="boxInfo">
             <strong>INCLUYE:</strong> Alojamiento, alimentación según plan y asistencia personalizada.<br>
             <strong>CONDICIONES DE PAGO:</strong> Para confirmar reserva se realiza el abono del <strong>50% del valor total (COP)</strong> y el <strong>50% restante 10 días antes del Check-In</strong>.<br>
             <strong>VIGENCIA:</strong> Esta cotización tiene <strong>48 horas de vigencia</strong>. Transcurridas las 48 horas, las tarifas y la disponibilidad están sujetas a cambio sin previo aviso.
@@ -494,10 +574,10 @@
     <table class="signature-table">
         <tr>
             <td>
-                <div class="signature-line">Firma Asesor</div>
+                <div class="signature-line">Firma Asesor / Agencia</div>
             </td>
             <td>
-                <div class="signature-line">Firma Cliente</div>
+                <div class="signature-line">Firma Cliente / Pasajero</div>
             </td>
         </tr>
     </table>
@@ -518,64 +598,26 @@
 
 <script>
 let editandoIvaManual = false;
+let modoActual = 'cotizacion';
 
-function calcularTotal() {
-    const valNoche = parseFloat(document.getElementById('valNoche').value) || 0;
-    const numNoches = parseFloat(document.getElementById('numNoches').value) || 0;
-    const descuentos = parseFloat(document.getElementById('descuentos').value) || 0;
-    const checkIva = document.getElementById('checkIva').checked;
-
-    // Cálculo del Subtotal
-    const subtotal = valNoche * numNoches;
-    document.getElementById('subtotal').value = subtotal > 0 ? subtotal : '';
-
-    // Cálculo automático de IVA
-    let impuestos = 0;
-    if (checkIva) {
-        if (!editandoIvaManual) {
-            impuestos = subtotal > 0 ? Math.round(subtotal * 0.19) : 0;
-            document.getElementById('impuestos').value = impuestos > 0 ? impuestos : '';
-        } else {
-            impuestos = parseFloat(document.getElementById('impuestos').value) || 0;
-        }
-    } else {
-        editandoIvaManual = false;
-        document.getElementById('impuestos').value = 0;
-        impuestos = 0;
-    }
-
-    // Cálculo del Total Final
-    const total = subtotal + impuestos - descuentos;
-    document.getElementById('total').value = total > 0 ? total : (subtotal > 0 ? total : '');
-}
-
-function recalcularConIVAManual() {
-    editandoIvaManual = true;
-    const valNoche = parseFloat(document.getElementById('valNoche').value) || 0;
-    const numNoches = parseFloat(document.getElementById('numNoches').value) || 0;
-    const impuestos = parseFloat(document.getElementById('impuestos').value) || 0;
-    const descuentos = parseFloat(document.getElementById('descuentos').value) || 0;
-
-    const subtotal = valNoche * numNoches;
-    const total = subtotal + impuestos - descuentos;
-
-    document.getElementById('subtotal').value = subtotal > 0 ? subtotal : '';
-    document.getElementById('total').value = total > 0 ? total : '';
-}
-
-function descargarPDF() {
-    const elemento = document.getElementById('cotizacion-area');
+    const nombreArchivo = modoActual === 'voucher' ? 'Voucher_Reserva_Estefany_Travel.pdf' : 'Cotizacion_Estefany_Travel.pdf';
     
     const opt = {
         margin:       [4, 4, 4, 4],
-        filename:     'Cotizacion_Estefany_Travel.pdf',
+        filename:     nombreArchivo,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, allowTaint: true },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(elemento).save();
 }
+
+// Autocompletar fecha actual
+document.addEventListener('DOMContentLoaded', () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaDoc').value = hoy;
+});
 </script>
 
 </body>
